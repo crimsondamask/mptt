@@ -5,15 +5,20 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use std::{process::Command, sync::Mutex, time::Duration};
+
 use maud::{html, Markup, DOCTYPE};
 use mptt::modbus::*;
 use std::sync::Arc;
-use tauri::Manager;
-use tauri::{CustomMenuItem, SystemTray, SystemTrayEvent, SystemTrayMenu, SystemTrayMenuItem};
-use tokio::sync::Mutex;
+use tauri::{
+    CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu, SystemTrayMenuItem,
+};
 use tokio_modbus::FunctionCode;
 use tower_http::services::ServeDir;
 
+struct AppState {
+    shutdown_signal: Arc<Mutex<bool>>,
+}
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -22,52 +27,47 @@ fn greet(name: &str) -> String {
 
 fn main() {
     let quit = CustomMenuItem::new("quit".to_string(), "Quit");
-    let start_runtime = CustomMenuItem::new("start_runtime".to_string(), "Start Runtime");
-    let stop_runtime = CustomMenuItem::new("stop_runtime".to_string(), "Stop Runtime");
+    let show_ui = CustomMenuItem::new("show_ui".to_string(), "Show UI");
+    let app_state = AppState {
+        shutdown_signal: Arc::new(Mutex::new(false)),
+    };
+    let shutdown_signal = app_state.shutdown_signal.clone();
+    let state = shutdown_signal.clone();
+    std::thread::spawn(move || {
+        if let Ok(rt) = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+        {
+            let _ = rt.block_on(run_server(state));
+        }
+    });
     let tray_menu = SystemTrayMenu::new()
-        .add_item(start_runtime)
-        .add_item(stop_runtime)
+        .add_item(show_ui)
         .add_native_item(SystemTrayMenuItem::Separator)
         .add_item(quit);
     tauri::Builder::default()
+        .manage(app_state)
         .system_tray(SystemTray::new().with_menu(tray_menu))
-        .on_system_tray_event(|app, event| match event {
-            SystemTrayEvent::LeftClick {
-                position: _,
-                size: _,
-                ..
-            } => {
-                println!("system tray received a left click");
-            }
-            SystemTrayEvent::RightClick {
-                position: _,
-                size: _,
-                ..
-            } => {
-                println!("system tray received a right click");
-            }
-            SystemTrayEvent::DoubleClick {
-                position: _,
-                size: _,
-                ..
-            } => {
-                println!("system tray received a double click");
-            }
+        .on_system_tray_event(move |_app, event| match event {
             SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
                 "quit" => {
                     std::process::exit(0);
                 }
-                "start_runtime" => {
-                    std::thread::spawn(move || {
-                        if let Ok(rt) = tokio::runtime::Builder::new_current_thread()
-                            .enable_all()
-                            .build()
-                        {
-                            let _ = rt.block_on(run_server());
-                        }
-                    });
+                "start_runtime" => {}
+                "show_ui" => {
+                    let _output = if cfg!(target_os = "windows") {
+                        Command::new("explorer")
+                            .arg("http://127.0.0.1:3000")
+                            .spawn()
+                            .expect("failed to execute process")
+                    } else {
+                        Command::new("open")
+                            .arg("-n")
+                            .arg("http://127.0.0.1:3000")
+                            .spawn()
+                            .expect("failed to execute process")
+                    };
                 }
-                "stop_runtime" => {}
                 _ => {}
             },
             _ => {}
@@ -83,8 +83,8 @@ fn main() {
         });
 }
 
-async fn run_server() {
-    let state = Arc::new(Mutex::new(ModbusState {
+async fn run_server(_shutdown_signal: Arc<Mutex<bool>>) {
+    let state = Arc::new(tokio::sync::Mutex::new(ModbusState {
         context: None,
         poll_time: None,
         protocol_options: ProtocolOpts {
@@ -108,7 +108,23 @@ async fn run_server() {
         .with_state(state);
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     println!("Starting server...");
-    axum::serve(listener, app).await.unwrap();
+
+    axum::serve(listener, app)
+        /*
+        .with_graceful_shutdown(async move {
+            loop {
+                if let Ok(mut signal) = shutdown_signal.lock() {
+                    if *signal {
+                        println!("Shutting down server...");
+                        *signal = false;
+                        return;
+                    }
+                }
+            }
+        })
+         */
+        .await
+        .unwrap();
 }
 
 fn header(title: &str, icon: &str) -> Markup {
