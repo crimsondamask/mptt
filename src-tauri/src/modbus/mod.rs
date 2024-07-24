@@ -19,6 +19,8 @@ const TABLE_COL_WIDTH: usize = TABLE_WIDTH / 3;
 
 const STATUS_BAR_FIELD_WIDTH: usize = (WINDOW_WIDTH - 15) / 2;
 
+const SERIAL_TIMEOUT: u64 = 2; // 2 seconds timeout for the serial port.
+
 #[derive(Serialize, Deserialize)]
 pub struct ModbusSerialForm {
     pub com: String,
@@ -110,7 +112,8 @@ pub async fn connect_modbus_serial(
 
     //let sock_address = format!("{}:{}", &form_input.address, &form_input.port);
     let slave = Slave(form_input.slave);
-    let builder = tokio_serial::new(&form_input.com, form_input.baudrate);
+    let builder = tokio_serial::new(&form_input.com, form_input.baudrate)
+        .timeout(Duration::from_secs(SERIAL_TIMEOUT));
     let port = SerialStream::open(&builder);
 
     if let Ok(port) = port {
