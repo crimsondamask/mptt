@@ -149,7 +149,7 @@ fn header(title: &str, icon: &str) -> Markup {
 
 pub async fn modbus_tcp() -> Markup {
     html! {
-        (header("MPTT Modbus TCP", "modbus"))
+        (header("MPTT Modbus TCP", "MPTT"))
         aside {
             ul class="tree-view" style="height: 500px;" {
                 li {
