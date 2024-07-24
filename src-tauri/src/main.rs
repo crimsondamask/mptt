@@ -163,6 +163,17 @@ pub async fn modbus_tcp() -> Markup {
                        a href="/modbus_serial" { "Modbus Serial" }
                    }
                }
+               details {
+                   summary { "About" }
+                   ul {
+                       li {
+                           "Author: Abdelkader Madoui"
+                       }
+                       li {
+                           "Email: abdelkadermadoui@protonmail.com"
+                       }
+                   }
+               }
            }
         }
         (modbus_tcp_body())
@@ -185,7 +196,19 @@ pub async fn modbus_serial() -> Markup {
                        a href="/modbus_serial" { "Modbus Serial" }
                    }
                }
+               details {
+                   summary { "About" }
+                   ul {
+                       li {
+                           "Author: Abdelkader Madoui"
+                       }
+                       li {
+                           "Email: abdelkadermadoui@protonmail.com"
+                       }
+                   }
+               }
            }
+
         }
         (modbus_serial_body())
     }
