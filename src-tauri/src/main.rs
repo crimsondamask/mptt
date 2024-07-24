@@ -104,7 +104,7 @@ async fn run_server(_shutdown_signal: Arc<Mutex<bool>>) {
         .route("/connect_modbus_serial", post(connect_modbus_serial))
         .route("/write_modbus", post(write_modbus))
         .route("/update_modbus", post(update_modbus))
-        .nest_service("/assets", ServeDir::new("assets"))
+        .nest_service("/assets", ServeDir::new("./assets/"))
         .with_state(state);
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     println!("Starting server...");
@@ -182,7 +182,7 @@ pub async fn modbus_tcp() -> Markup {
 
 pub async fn modbus_serial() -> Markup {
     html! {
-        (header("MPTT Modbus Serial", "modbus"))
+        (header("MPTT Modbus Serial", "MPTT"))
         aside {
             ul class="tree-view" style="height: 500px;" {
                 li {
